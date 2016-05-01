@@ -5,7 +5,7 @@ from PIL import Image
 
 import random
 
-class VOCSegDataLayer(caffe.Layer):
+class COCOSegDataLayer(caffe.Layer):
     """
     Load (input image, label image) pairs from PASCAL VOC
     one-at-a-time while reshaping the net to preserve dimensions.
@@ -17,7 +17,8 @@ class VOCSegDataLayer(caffe.Layer):
         """
         Setup data layer according to parameters:
 
-        - voc_dir: path to PASCAL VOC year dir
+        - image_dir:
+        - label_dir:
         - split: train / val / test
         - mean: tuple of mean values to subtract
         - randomize: load in random order (default: True)
@@ -33,8 +34,9 @@ class VOCSegDataLayer(caffe.Layer):
         """
         # config
         params = eval(self.param_str)
-        self.voc_dir = params['voc_dir']
-        self.split = params['split']
+        self.image_dir = params['image_dir']
+        self.label_dir = params['label_dir']
+        self.imlist = params['imlist']
         self.mean = np.array(params['mean'])
         self.random = params.get('randomize', True)
         self.seed = params.get('seed', None)
@@ -47,14 +49,13 @@ class VOCSegDataLayer(caffe.Layer):
             raise Exception("Do not define a bottom.")
 
         # load indices for images and labels
-        split_f  = '{}/ImageSets/Segmentation/{}.txt'.format(self.voc_dir,
-                self.split)
+        split_f  = self.imlist
         self.indices = open(split_f, 'r').read().splitlines()
         self.idx = 0
 
-        # make eval deterministic
-        if 'train' not in self.split:
-            self.random = False
+#        # make eval deterministic
+#        if 'train' not in self.split:
+#            self.random = False
 
         # randomization: seed and pick
         if self.random:
@@ -97,8 +98,10 @@ class VOCSegDataLayer(caffe.Layer):
         - subtract mean
         - transpose to channel x height x width order
         """
-        im = Image.open('{}/JPEGImages/{}.jpg'.format(self.voc_dir, idx))
+        im = Image.open('{}/{}.jpg'.format(self.image_dir, idx))
         in_ = np.array(im, dtype=np.float32)
+        if in_.ndim == 2:
+            in_ = np.tile(in_[..., np.newaxis], (1, 1, 3))
         in_ = in_[:,:,::-1]
         in_ -= self.mean
         in_ = in_.transpose((2,0,1))
@@ -110,7 +113,7 @@ class VOCSegDataLayer(caffe.Layer):
         Load label image as 1 x height x width integer array of label indices.
         The leading singleton dimension is required by the loss.
         """
-        im = Image.open('{}/SegmentationClass/{}.png'.format(self.voc_dir, idx))
+        im = Image.open('{}/{}.png'.format(self.label_dir, idx))
         label = np.array(im, dtype=np.uint8)
         label = label[np.newaxis, ...]
         return label

@@ -1,0 +1,4 @@
+coco_val_images/
+coco_val_labels_png/
+*.pyc
+*-checkpoint.ipynb
